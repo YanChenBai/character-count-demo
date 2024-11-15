@@ -125,12 +125,10 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
 
     window.addEventListener('compositionstart', this.storage.onCompositionStart)
     window.addEventListener('compositionend', this.storage.onCompositionEnd)
-    window.addEventListener('blur', this.storage.onCompositionEnd)
   },
   onDestroy() {
     window.removeEventListener('compositionstart', this.storage.onCompositionStart)
     window.removeEventListener('compositionend', this.storage.onCompositionEnd)
-    window.removeEventListener('blur', this.storage.onCompositionEnd)
   },
 
   addProseMirrorPlugins() {
