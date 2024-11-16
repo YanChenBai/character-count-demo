@@ -80,24 +80,43 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
   },
 
   onBeforeCreate() {
+    let oldCharactersCount = 0
+    let oldWordsCount = 0
+
     this.storage.characters = (options) => {
+      if (!this.storage.compositionEnd)
+        return oldCharactersCount
+
       const node = options?.node || this.editor.state.doc
       const mode = options?.mode || this.options.mode
+
+      let count = 0
 
       if (mode === 'textSize') {
         const text = node.textBetween(0, node.content.size, undefined, ' ')
 
-        return this.options.textCounter(text)
+        count = this.options.textCounter(text)
+      }
+      else {
+        count = node.nodeSize
       }
 
-      return node.nodeSize
+      oldCharactersCount = count
+
+      return count
     }
 
     this.storage.words = (options) => {
+      if (!this.storage.compositionEnd)
+        return oldWordsCount
+
       const node = options?.node || this.editor.state.doc
       const text = node.textBetween(0, node.content.size, ' ', ' ')
 
-      return this.options.wordCounter(text)
+      const count = this.options.wordCounter(text)
+      oldWordsCount = count
+
+      return count
     }
 
     this.storage.onCompositionEnd = () => {
@@ -126,6 +145,7 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
     window.addEventListener('compositionstart', this.storage.onCompositionStart)
     window.addEventListener('compositionend', this.storage.onCompositionEnd)
   },
+
   onDestroy() {
     window.removeEventListener('compositionstart', this.storage.onCompositionStart)
     window.removeEventListener('compositionend', this.storage.onCompositionEnd)
