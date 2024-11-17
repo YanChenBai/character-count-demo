@@ -46,11 +46,11 @@ export interface CharacterCountStorage {
    */
   words: (options?: { node?: ProseMirrorNode }) => number
 
-  compositionEnd: boolean
+  isCompositionFinished: boolean
 
-  onCompositionStart: () => void
+  handleCompositionStart: () => void
 
-  onCompositionEnd: () => void
+  handleCompositionEnd: () => void
 }
 
 /**
@@ -59,7 +59,6 @@ export interface CharacterCountStorage {
  */
 export const CharacterCount = Extension.create<CharacterCountOptions, CharacterCountStorage>({
   name: 'characterCount',
-
   addOptions() {
     return {
       limit: null,
@@ -73,9 +72,9 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
     return {
       characters: () => 0,
       words: () => 0,
-      compositionEnd: true,
-      onCompositionStart: () => 0,
-      onCompositionEnd: () => 0,
+      isCompositionFinished: true,
+      handleCompositionStart: () => 0,
+      handleCompositionEnd: () => 0,
     }
   },
 
@@ -84,8 +83,7 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
     let oldWordsCount = 0
 
     this.storage.characters = (options) => {
-      if (!this.storage.compositionEnd)
-        return oldCharactersCount
+      if (!this.storage.isCompositionFinished) { return oldCharactersCount }
 
       const node = options?.node || this.editor.state.doc
       const mode = options?.mode || this.options.mode
@@ -107,27 +105,33 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
     }
 
     this.storage.words = (options) => {
-      if (!this.storage.compositionEnd)
-        return oldWordsCount
+      if (!this.storage.isCompositionFinished) { return oldWordsCount }
 
       const node = options?.node || this.editor.state.doc
       const text = node.textBetween(0, node.content.size, ' ', ' ')
 
       const count = this.options.wordCounter(text)
+
       oldWordsCount = count
 
       return count
     }
 
-    this.storage.onCompositionEnd = () => {
-      this.storage.compositionEnd = true
+    this.storage.handleCompositionStart = () => {
+      this.storage.isCompositionFinished = false
+    }
+
+    this.storage.handleCompositionEnd = () => {
+      this.storage.isCompositionFinished = true
 
       const limit = this.options.limit
+
       if (limit === 0 || limit === null || limit === undefined) {
         return
       }
 
       const currentSize = this.storage.characters()
+
       if (currentSize > limit) {
         const over = currentSize - limit
         const pos = this.editor.state.selection.$head.pos
@@ -138,17 +142,13 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
       }
     }
 
-    this.storage.onCompositionStart = () => {
-      this.storage.compositionEnd = false
-    }
-
-    window.addEventListener('compositionstart', this.storage.onCompositionStart)
-    window.addEventListener('compositionend', this.storage.onCompositionEnd)
+    window.addEventListener('compositionstart', this.storage.handleCompositionStart)
+    window.addEventListener('compositionend', this.storage.handleCompositionEnd)
   },
 
   onDestroy() {
-    window.removeEventListener('compositionstart', this.storage.onCompositionStart)
-    window.removeEventListener('compositionend', this.storage.onCompositionEnd)
+    window.removeEventListener('compositionstart', this.storage.handleCompositionStart)
+    window.removeEventListener('compositionend', this.storage.handleCompositionEnd)
   },
 
   addProseMirrorPlugins() {
@@ -157,7 +157,7 @@ export const CharacterCount = Extension.create<CharacterCountOptions, CharacterC
         key: new PluginKey('characterCount'),
         filterTransaction: (transaction, state) => {
           // If we are still in composition, ignore it.
-          if (!this.storage.compositionEnd) {
+          if (!this.storage.isCompositionFinished) {
             return true
           }
 
